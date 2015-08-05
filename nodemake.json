@@ -1,0 +1,23 @@
+{
+  "variables": {
+    "cc": "g++",
+    "cflags": "-g -Wall -Werror -std=c++11",
+    "name": "helloworld"
+  },
+  "defaultGoal": "all",
+  "targets": {
+    "all": {
+      "name": "$name",
+      "prerequisites": "Hello.o Yolo.o main.cpp",
+      "recipe": "$cc $cflags -o $name main.cpp Hello.o"
+    },
+    "Hello.o": {
+      "prerequisites": "Hello.cpp Hello.h",
+      "recipe": "$cc $cflags -c Hello.cpp"
+    },
+    "Yolo.o": {
+      "prerequisites": "Yolo.cpp Yolo.h",
+      "recipe": "$cc $cflags -c Yolo.cpp"
+    }
+  }
+}
