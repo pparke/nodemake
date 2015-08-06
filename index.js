@@ -145,93 +145,52 @@ stages.forEach(function(stage) {
     // check if the target file exists
     if (fs.existsSync(target.name)) {
       var targetMTime = fs.statSync(target.name).mtime;
-      // check if the prerequisites are newer than the target
+      // check if any of the prerequisites are newer than the target
       var prerequisites = target.prerequisites.split(' ');
-      prerequisites.forEach(function(prereq) {
+      var doBuild = prerequisites.some(function(prereq) {
         logger.debug('Checking file %s', prereq);
         if (fs.existsSync(prereq)){
           var prereqMTime = fs.statSync(prereq).mtime;
           var newer = targetMTime.getTime() < prereqMTime.getTime();
-          logger.debug('%s is %s than %s', prereq, newer ? 'newer' : 'not newer', target.name);
+          logger.debug('%s is %s than %s', prereq, newer ? 'newer' : 'older', target.name);
+          return newer;
         }
       });
+
+      // build if newer
+      if (doBuild) {
+        logger.debug('Building target %s', target.name);
+        var command   = target.recipe.split(' ')[0];
+        var args      = target.recipe.split(' ').slice(1);
+        logger.debug('command is %s, args are %s', command, args)
+        var compile   = spawn(command, args/*, {stdio: 'inherit'}*/);
+
+        var out = '';
+        var err = '';
+
+        compile.stdout.on('data', function(data) {
+          out += data.toString();
+        });
+
+        compile.stderr.on('data', function(data) {
+          err += data.toString();
+        });
+
+        compile.on('exit', function(code) {
+          logger.debug('compile finished')
+          logger.info(out);
+          logger.error(err);
+        });
+
+      }
     }
   });
 });
 
 process.exit(0);
 
-// build the targets without prerequisite targets first
-// then build the targets that depend on those ones, etc.
-while (count > 0 && !stuck) {
-  stuck = true;
-
-  // iterate over each of the targets that have not been built
-  targetKeys.forEach(function(key, i){
-    if (targets.hasOwnProperty(key)){
-      var target = targets[key];
-
-      // get the prerequisites for the target
-      var prerequisites = target.prerequisites.split(' ');
-      // check if the prerequisites have been built or already exist
-      var satisfied = prerequisites.every(function(prereq) {
-        // if we already built it, it's ok
-        if (built.indexOf(prereq) > -1) {
-          return true;
-        }
-        // if it doesn't exist in targetKeys, check if the file exists
-        if (targetKeys.indexOf(prereq) === -1) {
-          // if it exists, it's ok
-          if (fs.existsSync(prereq)) {
-            return true;
-          }
-          logger.warn('No rule to make target %s', prereq);
-        }
-
-        return false;
-      });
-
-      // if all prerequisites exist, build
-      if (satisfied) {
-        logger.info('Building target %s', key);
-        // add to list of built targets
-        built.push(key);
-        // remove from list of working targets
-        targetKeys.splice(i, 1);
-        count -= 1;
-        // we did something, we're not stuck!
-        stuck = false;
-      }
-    }
-  });
-}
-if (stuck) {
-  logger.warn('Could not complete compilation!');
-} else {
-  logger.ok('Completed');
-}
-
-/*
-var clean     = ['rm -f', todelete];
-
-objects.forEach(function(object){
-  fs.stat(object, function(err, stats) {
-    console.log(stats.mtime);
-  });
-});
-
-var compile = spawn(cc, listing);
-*/
-/*
-compile.stdout.on('data', function(data) {
-  console.log(data);
-});
-
-compile.stderr.on('data', function(data) {
-  console.log(data)
-})
-*/
 /*
 compile.stdout.pipe(process.stdout);
 compile.stderr.pipe(process.stdout);
+
 */

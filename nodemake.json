@@ -1,7 +1,7 @@
 {
   "variables": {
     "cc": "g++",
-    "cflags": "-g -Wall -Werror -std=c++11",
+    "cflags": "-g -Wall -Werror -std=c++11 -d",
     "name": "helloworld"
   },
   "defaultGoal": "all",
