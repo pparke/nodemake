@@ -3,5 +3,5 @@
 int main()
 {
   Hello* hi = new Hello();
-  hi.sayHello();
+  hi->sayHello();
 }

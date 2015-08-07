@@ -1,15 +1,15 @@
 {
   "variables": {
     "cc": "g++",
-    "cflags": "-g -Wall -Werror -std=c++11 -d",
+    "cflags": "-g -Wall -std=c++11 -d",
     "name": "helloworld"
   },
   "defaultGoal": "all",
   "targets": {
     "all": {
       "name": "$name",
-      "prerequisites": "Hello.o Yolo.o main.cpp",
-      "recipe": "$cc $cflags -o $name main.cpp Hello.o"
+      "prerequisites": "Hello.o main.cpp",
+      "recipe": "$cc $cflags main.cpp Hello.o -o $name"
     },
     "Hello.o": {
       "prerequisites": "Hello.cpp Hello.h",

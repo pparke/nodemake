@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 var spawn       = require('child_process').spawn;
+var exec        = require('child_process').exec;
 var fs          = require('fs');
 var path        = require('path');
 var Q           = require('q');
@@ -138,6 +139,7 @@ stages = stages.reverse();
 
 logger.debug('stages', stages);
 
+var buildSequence = [];
 // build each of the targets in each of the stages in turn
 stages.forEach(function(stage) {
   stage.forEach(function(target) {
@@ -153,43 +155,71 @@ stages.forEach(function(stage) {
           var prereqMTime = fs.statSync(prereq).mtime;
           var newer = targetMTime.getTime() < prereqMTime.getTime();
           logger.debug('%s is %s than %s', prereq, newer ? 'newer' : 'older', target.name);
-          return newer;
+
+          var dependedOn = buildSequence.indexOf(prereq) > -1;
+
+          return newer || dependedOn;
         }
       });
 
       // build if newer
       if (doBuild) {
-        logger.debug('Building target %s', target.name);
-        var command   = target.recipe.split(' ')[0];
-        var args      = target.recipe.split(' ').slice(1);
-        logger.debug('command is %s, args are %s', command, args)
-        var compile   = spawn(command, args/*, {stdio: 'inherit'}*/);
-
-        var out = '';
-        var err = '';
-
-        compile.stdout.on('data', function(data) {
-          out += data.toString();
-        });
-
-        compile.stderr.on('data', function(data) {
-          err += data.toString();
-        });
-
-        compile.on('exit', function(code) {
-          logger.debug('compile finished')
-          logger.info(out);
-          logger.error(err);
-        });
-
+        buildSequence.push(target);
       }
+    // target has not been built yet, must build
+    } else {
+      buildSequence.push(target);
     }
   });
 });
 
-process.exit(0);
+
+var buildChain = buildSequence.reduce(function(prev, target) {
+  return prev.then(function() {
+    var deferred = Q.defer();
+
+    logger.debug('Building target %s', target.name);
+    var command   = target.recipe.split(' ')[0];
+    var args      = target.recipe.split(' ').slice(1);
+    //logger.debug('command is %s, args are %s', command, args);
+    var compile   = spawn(command, args);
+
+    var out = 'STDOUT: ';
+    var err = 'STDERR: ';
+
+    compile.stdout.on('data', function(data) {
+      out += data.toString();
+    });
+
+    compile.stderr.on('data', function(data) {
+      err += data.toString();
+    });
+
+    compile.on('close', function(code) {
+      logger.info(out);
+      logger.error(err);
+      if (err) {
+        //deferred.reject();
+        deferred.resolve();
+      } else {
+        deferred.resolve();
+      }
+    });
+
+    return deferred.promise;
+  });
+}, Q.resolve());
+
+buildChain.then(function(){
+  logger.ok('build succeeded');
+})
+.fail(function(reason) {
+  logger.error('build failed', reason);
+});
 
 /*
+process.exit(0);
+
 compile.stdout.pipe(process.stdout);
 compile.stderr.pipe(process.stdout);
 
