@@ -75,8 +75,6 @@ for (var sub in substitutes){
   }
 }
 
-logger.debug('targets are now', targets)
-
 
 // get all of the targets that need to be built based on the default goal
 if (targets[defaultGoal]) {
@@ -137,7 +135,28 @@ if (targets[defaultGoal]) {
 // start with base requirements
 stages = stages.reverse();
 
-logger.debug('stages', stages);
+// draw a tree of the stages if debug is on
+if (program.debug) {
+  logger.debug('\u250c stages:');
+  stages.forEach(function(stage, i) {
+    // branch is either vertical and right or up and right
+    var branch = i+1 !== stages.length ? '\u251c' : '\u2514';
+    // stem is either vertical or empty
+    var stem = i+1 !== stages.length ? '\u2502' : ' ';
+    stage.forEach(function(substage, j) {
+      var lines = '';
+      if (j === 0) {
+        lines += branch;
+        lines += stage.length === 1 ? '\u2500' : '\u252c';
+      } else {
+        lines += stem;
+        lines += j+1 !== stage.length ? '\u251c' : '\u2514'
+      }
+      logger.debug('%s %s', lines, substage.name)
+    });
+  });
+}
+
 
 var buildSequence = [];
 // build each of the targets in each of the stages in turn
@@ -173,54 +192,37 @@ stages.forEach(function(stage) {
   });
 });
 
+if (program.debug) {
+  logger.debug('sequence %s', buildSequence.map(function(target){return target.name;}).join(' \u279c '));
+}
 
+// build each of the necessary targets in sequence
 var buildChain = buildSequence.reduce(function(prev, target) {
   return prev.then(function() {
     var deferred = Q.defer();
 
-    logger.debug('Building target %s', target.name);
-    var command   = target.recipe.split(' ')[0];
-    var args      = target.recipe.split(' ').slice(1);
-    //logger.debug('command is %s, args are %s', command, args);
-    var compile   = spawn(command, args);
-
-    var out = 'STDOUT: ';
-    var err = 'STDERR: ';
-
-    compile.stdout.on('data', function(data) {
-      out += data.toString();
-    });
-
-    compile.stderr.on('data', function(data) {
-      err += data.toString();
-    });
-
-    compile.on('close', function(code) {
-      logger.info(out);
-      logger.error(err);
-      if (err) {
-        //deferred.reject();
-        deferred.resolve();
-      } else {
-        deferred.resolve();
+    logger.debug('Building target %s with recipe %s', target.name, target.recipe);
+    var compile = exec(target.recipe, function(err, stdout, stderr) {
+      if (stdout) {
+        logger.info(stdout);
       }
-    });
+      if (stderr) {
+        logger.error(stderr);
+      }
+      if (err !== null) {
+        return deferred.reject(err);
+      }
+      deferred.resolve();
+    })
 
     return deferred.promise;
   });
 }, Q.resolve());
 
-buildChain.then(function(){
+buildChain.then(function(stdout, stderr){
   logger.ok('build succeeded');
 })
 .fail(function(reason) {
-  logger.error('build failed', reason);
+  logger.error('build failed');
+  logger.debug(reason);
 });
-
-/*
-process.exit(0);
-
-compile.stdout.pipe(process.stdout);
-compile.stderr.pipe(process.stdout);
-
-*/
