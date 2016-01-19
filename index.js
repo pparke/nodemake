@@ -5,6 +5,7 @@ var exec        = require('child_process').exec;
 var fs          = require('fs');
 var path        = require('path');
 var Q           = require('q');
+var _           = require('underscore');
 var program     = require('commander');
 var pkg         = require(path.join(__dirname, 'package.json'));
 
@@ -42,38 +43,27 @@ var targetKeys      = Object.keys(targets);
 var targetsToBuild  = [];
 var built           = [];
 var count           = targetKeys.length;
-var stuck           = false;
 
 // check if a name has been declared for each build target
 // and if not assign the target key as the name
-for (var key in targets) {
-  if (targets.hasOwnProperty(key)){
-    var target = targets[key];
-    if (!target.name) {
-      target.name = key;
-    }
+_.each(targets, function(target, key) {
+  if (!target.name) {
+    target.name = key;
   }
-}
+});
 
 var substitutes = config.variables;
 
 // substitute the defined values for their placeholders
-for (var sub in substitutes){
-  if (substitutes.hasOwnProperty(sub)){
-    var search = new RegExp('(\\$' + sub + ')(\\W)|(\\$' + sub + ')($)', 'g');
-    var value = substitutes[sub] + '$2';
-    for (var key in targets) {
-      if (targets.hasOwnProperty(key)){
-        var target = targets[key];
-        for (var key2 in target){
-          if (target.hasOwnProperty(key2)){
-            targets[key][key2] = targets[key][key2].replace(search, value);
-          }
-        }
-      }
-    }
-  }
-}
+_.each(substitutes, function(sub, subKey) {
+  var search = new RegExp('(\\$' + subKey + ')(\\W)|(\\$' + subKey + ')($)', 'g');
+  var value = sub + '$2';
+  _.each(targets, function(target, targetKey){
+    _.each(target, function(field, fieldKey){
+        targets[targetKey][fieldKey] = targets[targetKey][fieldKey].replace(search, value);
+    });
+  });
+});
 
 
 // get all of the targets that need to be built based on the default goal
@@ -99,7 +89,7 @@ if (targets[defaultGoal]) {
 
         // if there is a target defined for this prerequisite
         // it will have to be built as part of the next build stage
-        // we will also check it for it's own prerequisites
+        // we will also check it for its own prerequisites
         if (targetKeys.indexOf(prereq) > -1) {
           prev.push(targets[prereq]);
           return prev;

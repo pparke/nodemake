@@ -8,7 +8,7 @@
   "targets": {
     "all": {
       "name": "$name",
-      "prerequisites": "Hello.o Yolo.o main.cpp",
+      "prerequisites": "Hello.o main.cpp",
       "recipe": "$cc $cflags main.cpp Hello.o -o $name"
     },
     "Hello.o": {
@@ -16,6 +16,7 @@
       "recipe": "$cc $cflags -c Hello.cpp"
     },
     "Yolo.o": {
+      "directory": "yolo",
       "prerequisites": "Yolo.cpp Yolo.h",
       "recipe": "$cc $cflags -c Yolo.cpp"
     }
